@@ -84,6 +84,30 @@ public:
 					timestamp_.store(msg->timestamp);
 				});
 
+        setpoints_sub_ = this->create_subscription<px4_msgs::msg::TrajectorySetpoint>(
+                "Trajectory_PubSubTopic",
+#ifdef ROS_DEFAULT_API
+                10,
+#endif
+                [this](const px4_msgs::msg::TrajectorySetpoint::UniquePtr msg) {
+                    std::cout << "\n";
+                    std::cout << "RECEIVED Trajectory: " << msg->x  << std::endl;
+                    std::cout << "Time stamp: "      << msg->timestamp    << std::endl;
+                    std::cout << "x: " << msg->x  << std::endl;
+                    std::cout << "y: " << msg->y << std::endl;
+                    std::cout << "z: " << msg->z  << std::endl;
+
+                    TrajectorySetpoint setpoint{};
+                    setpoint.timestamp = timestamp_.load();
+                    setpoint.x = msg->x;
+                    setpoint.y = msg->y;
+                    setpoint.z = msg->z;
+                    setpoint.yaw = -3.14; // [-PI:PI]
+
+                    trajectory_setpoint_publisher_->publish(setpoint);
+                });
+
+
 		offboard_setpoint_counter_ = 0;
 
 		auto timer_callback = [this]() -> void {
@@ -111,6 +135,7 @@ public:
 	void arm() const;
 	void disarm() const;
 
+
 private:
 	rclcpp::TimerBase::SharedPtr timer_;
 
@@ -118,8 +143,9 @@ private:
 	rclcpp::Publisher<TrajectorySetpoint>::SharedPtr trajectory_setpoint_publisher_;
 	rclcpp::Publisher<VehicleCommand>::SharedPtr vehicle_command_publisher_;
 	rclcpp::Subscription<px4_msgs::msg::Timesync>::SharedPtr timesync_sub_;
+    rclcpp::Subscription<px4_msgs::msg::TrajectorySetpoint>::SharedPtr setpoints_sub_;
 
-	std::atomic<uint64_t> timestamp_;   //!< common synced timestamped
+    std::atomic<uint64_t> timestamp_;   //!< common synced timestamped
 
 	uint64_t offboard_setpoint_counter_;   //!< counter for the number of setpoints sent
 
@@ -128,6 +154,7 @@ private:
 	void publish_vehicle_command(uint16_t command, float param1 = 0.0,
 				     float param2 = 0.0) const;
 };
+
 
 /**
  * @brief Send a command to Arm the vehicle
