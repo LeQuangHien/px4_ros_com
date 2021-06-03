@@ -46,6 +46,8 @@ find_package("${rmw_implementation}" REQUIRED)
 find_package(px4_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(bridge_msgs REQUIRED)
 
 find_package(PythonInterp 3 REQUIRED)
 if(ROS_DISTRO IN_LIST ROS_DISTROS)
@@ -72,6 +74,7 @@ function(custom_executable subfolder target)
   ament_target_dependencies(${target}
     rclcpp
     px4_msgs
+    bridge_msgs
   )
   install(TARGETS ${target}
   DESTINATION lib/${PROJECT_NAME})
