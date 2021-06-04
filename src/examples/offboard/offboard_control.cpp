@@ -91,28 +91,41 @@ public:
                         qos_profile.depth
                 ),
                 qos_profile);
-        qos.best_effort();
+
+        //qos.best_effort();
+
+        // manually enable topic statistics via options
+        auto options = rclcpp::SubscriptionOptions();
+        options.topic_stats_options.state = rclcpp::TopicStatisticsState::Enable;
+
+        // configure the collection window and publish period (default 1s)
+        options.topic_stats_options.publish_period = std::chrono::seconds(5);
+
+        auto setpoint_callback = [this](const bridge_msgs::msg::Setpoint::UniquePtr msg) {
+            auto time_diff = this->now() - msg->header.stamp;
+            std::cout << "\n";
+            std::cout << "RECEIVED Trajectory frame id: " << msg->header.frame_id << std::endl;
+            std::cout << "Time stamp sec: " << msg->header.stamp.sec << std::endl;
+            std::cout << "Time stamp nanosec: " << msg->header.stamp.nanosec << std::endl;
+            std::cout << "Time diff sec: " << time_diff.seconds() << std::endl;
+            std::cout << "Time diff nanosec: " << time_diff.nanoseconds() << std::endl;
+            std::cout << "x: " << msg->x << std::endl;
+            std::cout << "y: " << msg->y << std::endl;
+            std::cout << "z: " << msg->z << std::endl;
+
+            TrajectorySetpoint setpoint{};
+            setpoint.timestamp = timestamp_.load();
+            setpoint.x = msg->x;
+            setpoint.y = msg->y;
+            setpoint.z = msg->z;
+            setpoint.yaw = -3.14; // [-PI:PI]
+
+            trajectory_setpoint_publisher_->publish(setpoint);
+        };
+
         setpoints_sub_ = this->create_subscription<bridge_msgs::msg::Setpoint>(
                 "Setpoint_PubSubTopic", qos,
-                [this](const bridge_msgs::msg::Setpoint::UniquePtr msg) {
-                    auto time_diff = this->now() - msg->header.stamp;
-                    std::cout << "\n";
-                    std::cout << "RECEIVED Trajectory: " << msg->x << std::endl;
-                    std::cout << "Time stamp: " << msg->header.stamp.nanosec << std::endl;
-                    std::cout << "Time diff: " << time_diff.nanoseconds() << std::endl;
-                    std::cout << "x: " << msg->x << std::endl;
-                    std::cout << "y: " << msg->y << std::endl;
-                    std::cout << "z: " << msg->z << std::endl;
-
-                    TrajectorySetpoint setpoint{};
-                    setpoint.timestamp = timestamp_.load();
-                    setpoint.x = msg->x;
-                    setpoint.y = msg->y;
-                    setpoint.z = msg->z;
-                    setpoint.yaw = -3.14; // [-PI:PI]
-
-                    trajectory_setpoint_publisher_->publish(setpoint);
-                });
+                setpoint_callback, options);
 
 
         offboard_setpoint_counter_ = 0;
