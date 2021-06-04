@@ -38,62 +38,69 @@
  */
 
 #include <rclcpp/rclcpp.hpp>
-#include <px4_msgs/msg/vehicle_gps_position.hpp>
+#include <px4_msgs/msg/vehicle_local_position.hpp>
+#include <bridge_msgs/msg/vehicle_position.hpp>
+
 
 /**
  * @brief Vehicle GPS position uORB topic data callback
  */
-class VehicleGpsPositionListener : public rclcpp::Node
-{
+class VehicleGpsPositionListener : public rclcpp::Node {
 public:
-	explicit VehicleGpsPositionListener() : Node("vehicle_global_position_listener") {
-		subscription_ = this->create_subscription<px4_msgs::msg::VehicleGpsPosition>(
-			"VehicleGpsPosition_PubSubTopic",
+    explicit VehicleGpsPositionListener() : Node("vehicle_global_position_listener") {
+        rmw_qos_profile_t qos_profile = rmw_qos_profile_default;
+        auto qos = rclcpp::QoS(
+                rclcpp::QoSInitialization(
+                        qos_profile.history,
+                        qos_profile.depth
+                ),
+                qos_profile);
+        //qos.best_effort();
+
+        position_publisher_ = this->create_publisher<bridge_msgs::msg::VehiclePosition>("VehiclePosition_PubSubTopic",
+                                                                                        qos);
+        subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
+                "VehicleGpsPosition_PubSubTopic",
 #ifdef ROS_DEFAULT_API
-            10,
+                10,
 #endif
-			[this](const px4_msgs::msg::VehicleGpsPosition::UniquePtr msg) {
-			std::cout << "\n\n\n\n\n\n\n\n\n\n";
-			std::cout << "RECEIVED VEHICLE GPS POSITION DATA"   << std::endl;
-			std::cout << "=================================="   << std::endl;
-			std::cout << "ts: "      << msg->timestamp    << std::endl;
-			std::cout << "lat: " << msg->lat  << std::endl;
-			std::cout << "lon: " << msg->lon << std::endl;
-			std::cout << "alt: " << msg->alt  << std::endl;
-			std::cout << "alt_ellipsoid: " << msg->alt_ellipsoid << std::endl;
-			std::cout << "s_variance_m_s: " << msg->s_variance_m_s << std::endl;
-			std::cout << "c_variance_rad: " << msg->c_variance_rad << std::endl;
-			std::cout << "fix_type: " << msg->fix_type << std::endl;
-			std::cout << "eph: " << msg->eph << std::endl;
-			std::cout << "epv: " << msg->epv << std::endl;
-			std::cout << "hdop: " << msg->hdop << std::endl;
-			std::cout << "vdop: " << msg->vdop << std::endl;
-			std::cout << "noise_per_ms: " << msg->noise_per_ms << std::endl;
-			std::cout << "vel_m_s: " << msg->vel_m_s << std::endl;
-			std::cout << "vel_n_m_s: " << msg->vel_n_m_s << std::endl;
-			std::cout << "vel_e_m_s: " << msg->vel_e_m_s << std::endl;
-			std::cout << "vel_d_m_s: " << msg->vel_d_m_s << std::endl;
-			std::cout << "cog_rad: " << msg->cog_rad << std::endl;
-			std::cout << "vel_ned_valid: " << msg->vel_ned_valid << std::endl;
-			std::cout << "timestamp_time_relative: " << msg->timestamp_time_relative << std::endl;
-			std::cout << "time_utc_usec: " << msg->time_utc_usec << std::endl;
-			std::cout << "satellites_used: " << msg->satellites_used << std::endl;
-			std::cout << "heading: " << msg->heading << std::endl;
-			std::cout << "heading_offset: " << msg->heading_offset << std::endl;
-		});
-	}
+                [this](const px4_msgs::msg::VehicleLocalPosition::UniquePtr msg) {
+                    std::cout << "\n\n\n\n\n\n\n\n\n\n";
+                    std::cout << "RECEIVED VEHICLE LOCAl POSITION DATA" << std::endl;
+                    std::cout << "==================================" << std::endl;
+                    std::cout << "ts: " << msg->timestamp << std::endl;
+                    std::cout << "lat: " << msg->x << std::endl;
+                    std::cout << "lon: " << msg->y << std::endl;
+                    std::cout << "alt: " << msg->z << std::endl;
+
+                    auto vehicle_position = bridge_msgs::msg::VehiclePosition();
+                    vehicle_position.header.stamp = this->now();
+                    count_++;
+                    vehicle_position.header.frame_id = std::to_string(count_);
+                    vehicle_position.x = msg->x;
+                    vehicle_position.y = msg->y;
+                    vehicle_position.z = msg->z;
+
+                    RCLCPP_INFO(this->get_logger(),
+                                "Publishing gps location %d: second: %llu nanosecond: %llu x: %f y: %f z: %f ",
+                                count_, vehicle_position.header.stamp.sec, vehicle_position.header.stamp.nanosec, vehicle_position.x,
+                                vehicle_position.y, vehicle_position.z);
+                    this->position_publisher_->publish(vehicle_position);
+                });
+    }
 
 private:
-	rclcpp::Subscription<px4_msgs::msg::VehicleGpsPosition>::SharedPtr subscription_;
+    rclcpp::Subscription<px4_msgs::msg::VehicleLocalPosition>::SharedPtr subscription_;
+    rclcpp::Publisher<bridge_msgs::msg::VehiclePosition>::SharedPtr position_publisher_;
+    size_t count_;
 };
 
-int main(int argc, char *argv[])
-{
-	std::cout << "Starting vehicle_global_position listener node..." << std::endl;
-	setvbuf(stdout, NULL, _IONBF, BUFSIZ);
-	rclcpp::init(argc, argv);
-	rclcpp::spin(std::make_shared<VehicleGpsPositionListener>());
+int main(int argc, char *argv[]) {
+    std::cout << "Starting vehicle_global_position listener node..." << std::endl;
+    setvbuf(stdout, NULL, _IONBF, BUFSIZ);
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<VehicleGpsPositionListener>());
 
-	rclcpp::shutdown();
-	return 0;
+    rclcpp::shutdown();
+    return 0;
 }
