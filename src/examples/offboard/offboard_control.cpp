@@ -98,8 +98,8 @@ public:
         auto options = rclcpp::SubscriptionOptions();
         options.topic_stats_options.state = rclcpp::TopicStatisticsState::Enable;
 
-        // configure the collection window and publish period (default 1s)
-        options.topic_stats_options.publish_period = std::chrono::seconds(5);
+        // configure the topic name (default '/statistics')
+        options.topic_stats_options.publish_topic = "/statistics_setpoint";
 
         auto setpoint_callback = [this](const bridge_msgs::msg::Setpoint::UniquePtr msg) {
             auto time_diff = this->now() - msg->header.stamp;
